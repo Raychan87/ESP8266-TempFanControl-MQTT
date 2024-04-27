@@ -14,6 +14,8 @@ int RPM_Trig = 0;
 int Counter = 0;
 unsigned long currentTime1;
 unsigned long diffTime;
+const int pwmFreq = 8000;    // 100 ... 40000   (default: 1000)
+const int pwmRange = 255;     // 15 ... 65535  (default: 255)
 const int RPM_Pin = 14; 		//GPIO für den RPM (D3)
 const int FAN1_Pin = 2;     //GPIO für Fan 1 (SD3)
 //const int FAN2_Pin = 9 ;   //GPIO für Fan 2 (SD2)
@@ -69,13 +71,13 @@ void ICACHE_RAM_ATTR isr() {
     currentTime1 = millis();
   }
   //Nach 3 Umdrehungen
-  if (InterruptCounter == 6){
+  if (InterruptCounter == 2){
     diffTime =  millis() - currentTime1;//Differenzzeit Messen
+    detachInterrupt(digitalPinToInterrupt(RPM_Pin)); //Interrupt deaktivieren
     analogWrite(FAN1_Pin, dutyCycle);   //PWM Ausgang wieder aktivieren
     InterruptCounter = 0;
     //currentTime1 = 0; 
     RPM_Trig = 2; //Messung abgeschlossen
-    detachInterrupt(digitalPinToInterrupt(RPM_Pin)); //Interrupt deaktivieren
   }else{
     InterruptCounter++;
   }      
@@ -90,6 +92,8 @@ void setup() {
 	setup_wifi();	//Wlan verbinden
 	client.setServer(MQTT_BROKER, 1883); //MQTT
   sensors.begin(); //DS18B20 Sensor
+  analogWriteFreq(pwmFreq);   //PWM Frequenz (100...40000 default: 1000)
+ // analogWriteRange(pwmRange); //PWM Range (15...65535)
 }
 
 //________________________________________________________
@@ -110,10 +114,11 @@ void loop() {
   if (dutyCycle >= 30){
 
     //Messung wird gestartet
-    if (Counter == 2 && RPM_Trig == 0){
+    if (Counter == 3 && RPM_Trig == 0){
+      analogWrite(FAN1_Pin, MESSPUNKT); //PWM Signal zum Messen abschalten.
+      delay(10);
       Counter = 0;
       RPM_Trig = 1; //Messmodus aktivieren
-      analogWrite(FAN1_Pin, MESSPUNKT); //PWM Signal zum Messen abschalten.
       attachInterrupt(digitalPinToInterrupt(RPM_Pin), isr, RISING); //Interrupt aktivieren
     }
     if (RPM_Trig == 0){
@@ -130,8 +135,10 @@ void loop() {
   }
   //Messung ist abgeschlossen, RPM wird berechnet.
   if (RPM_Trig == 2) {
-    if (diffTime > 30) { //Fehlerhafte Messung ausschließen
-      rpm = (1000.0 / (diffTime / 3.0)) * 60.0; //RPM Berechnung
+    if (diffTime > 90) { //Fehlerhafte Messung ausschließen
+      client.publish("/server/diff",String(diffTime).c_str(),true); //MQTT
+      rpm = (1000.0 / diffTime) * 60.0; //RPM Berechnung
+      diffTime = 0;
     }    
     client.publish("/server/rpm",String(rpm).c_str(),true); //MQTT
     RPM_Trig = 0; //Messung abstellen
@@ -146,28 +153,33 @@ void loop() {
   }
 
   //PWM Lüftersteuerung
-  if (DutyCounter >= 3){
-    dutyCycle = dutyCycle + 10;
+  if (DutyCounter >= 5){
+    if (dutyCycle <= 90){
+      dutyCycle = 95;
+    }else{
+      dutyCycle = dutyCycle + 10;
+      if (dutyCycle > 255){
+      dutyCycle = 255;
+      }
+    }
     DutyCounter = 0;
   }
-  if (DutyCounter <= -3){
-    dutyCycle = dutyCycle - 10;
+  if (DutyCounter <= -5){
+    if (dutyCycle <= 90){
+      dutyCycle = 0;
+    }else{
+      dutyCycle = dutyCycle - 10;
+    }    
     DutyCounter = 0;
   }
-  if (dutyCycle > 255){
-    dutyCycle = 255;
-  }
-  if (dutyCycle < 0){
-    dutyCycle = 0;
-  }
-
+  
   //Wenn keine RPM Messung aktiv ist, wird PWM ausgegeben
   if (RPM_Trig == 0){
     analogWrite(FAN1_Pin, dutyCycle);
   }
   client.publish("/server/pwm",String(dutyCycle).c_str(),true); //MQTT
 
-	delay(100);
+	delay(250);
 }
 
 
