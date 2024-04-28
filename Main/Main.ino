@@ -17,7 +17,7 @@
 //Pin 14 defekt
 #define RPM_PIN 13
 #define FAN1_PIN 12
-#define FAN2_PIN 5
+#define FAN2_PIN 0
 #define TEMP_PIN 4  //DS18B20
 
 //
