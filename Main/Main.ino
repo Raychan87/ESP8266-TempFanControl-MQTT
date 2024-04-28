@@ -4,6 +4,14 @@
 #include <DallasTemperature.h>//Temperatur
 #include "Y:/Accounts.h"			//Accounts
 
+//---Inhalt von Accounts.h---//
+//const char* SSID =          //Wlan SSID
+//const char* PSK =           //Wlan Passwort
+//const char* MQTT_BROKER =   //MQTT Server IP
+//#define MQTT_PORT           //MQTT Port
+//const char* MQTT_User =     //MQTT Account
+//const char* MQTT_PW =       //MQTT Passwort
+
 //---PWM---//
 #define PWM_FREQ 25000 //100 ... 40000 (default: 1000)
 #define PWM_RANGE 255  //15 ... 65535 (default: 255)
@@ -22,11 +30,17 @@
 
 //
 #define LOOP_TIME 750 //ms
+#define S_BAUDRATE 115200
 #define MAJOR_TEMP 22.0
 
 //MQTT Topic fürs empfangen von Daten
 #define MQTT_SUB_MAJOR "inTopic"
 #define MQTT_SUB_SWITCH "inTopicOff"
+
+//MQTT Topic fürs senden von Daten
+#define MQTT_TX_DUTYCYCLE "/server/pwm"
+#define MQTT_TX_TEMP "/server/temp"
+#define MQTT_TX_RPM "/server/rpm"
 
 //________________________________________________________
 //RPM
@@ -95,7 +109,7 @@ void reconnect() {
 //MQTT Empfangen der Topics
 void callback(char* topic, byte* payload, unsigned int length) {
 
-  char msg[50];
+  char msg[10];
   String srtTopic = topic; //Umwandeln des Topics in ein String
 
   //Payload der Nachricht auslesen
@@ -142,12 +156,12 @@ void ICACHE_RAM_ATTR isr() {
 //________________________________________________________
 //Init
 void setup() {
-	Serial.begin(115200); //Baudrate
+	Serial.begin(S_BAUDRATE); //Baudrate
 	pinMode (RPM_PIN, INPUT);   //RPM Pin
   pinMode (FAN1_PIN, OUTPUT); //Fan1 Pin
   pinMode (FAN2_PIN, OUTPUT); //Fan2 Pin
 	setup_wifi();	//Wlan verbinden
-	client.setServer(MQTT_BROKER, 1883); //MQTT Broker
+	client.setServer(MQTT_BROKER, MQTT_PORT); //MQTT Broker
   client.setCallback(callback); //MQTT Empfangen von Nachrichten aktivieren
   sensors.begin(); //DS18B20 Sensor
   analogWriteFreq(PWM_FREQ);   //PWM Frequenz (100...40000 default: 1000)
@@ -174,7 +188,7 @@ void loop() {
     sensors.requestTemperatures(); 
     float temperature = sensors.getTempCByIndex(0);
     if (temperature >= 1){ //Auslesefehler werden nicht gesendet
-      client.publish("/server/temp",String(temperature).c_str(),true); //MQTT
+      client.publish(MQTT_TX_TEMP,String(temperature).c_str(),true); //MQTT
     }
     
     //RPM Signal vom FAN
@@ -193,20 +207,20 @@ void loop() {
         RPM_DelayCounter++;
       }   
     }else{ //Deaktiviert eine laufende Messung, wenn der Fan zu langsam ist.
-      detachInterrupt(digitalPinToInterrupt(RPM_PIN));
+      detachInterrupt(digitalPinToInterrupt(RPM_PIN)); //Interrupt deaktivieren
       analogWrite(FAN1_PIN, dutyCycle);
       analogWrite(FAN2_PIN, dutyCycle);
       RPM_Half_turn = 0;
       RPM_startTime = 0;
       RPM_Mode = 0;
       rpm = 0;
-      client.publish("/server/rpm",String(rpm).c_str(),true); //MQTT
+      client.publish(MQTT_TX_RPM,String(rpm).c_str(),true); //MQTT
     }
     //Messung ist abgeschlossen, RPM wird berechnet.
     if (RPM_Mode == 2) {
       if (RPM_diffTime > 10) { //Fehlerhafte Messung ausschließen        
         rpm = (1000.0 / (RPM_diffTime )) * 60.0; //RPM Berechnung
-        client.publish("/server/rpm",String(rpm).c_str(),true); //MQTT
+        client.publish(MQTT_TX_RPM,String(rpm).c_str(),true); //MQTT
         RPM_startTime = 0;
         RPM_diffTime = 0;
       }          
@@ -252,7 +266,7 @@ void loop() {
       analogWrite(FAN1_PIN, dutyCycle);
       analogWrite(FAN2_PIN, dutyCycle);
     }
-    client.publish("/server/pwm",String(dutyCycle).c_str(),true); //MQTT
+    client.publish(MQTT_TX_DUTYCYCLE,String(dutyCycle).c_str(),true); //MQTT
   }
 }
 
