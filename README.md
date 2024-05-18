@@ -6,13 +6,16 @@ Zusätzlich werden die Temperatur und die Umdrehung eines Lüfters per MQTT in e
 Und es kann über MQTT die Lüfter ausgeschaltet werden und die Temperaturgrenze eingestellt werden.
 
 - WLAN Betrieb
-- MQTT senden
+- MQTT empfangen
     - RPM des Lüfters
     - Dutycycle des PWM der Lüfter
     - Temperatur
-- MQTT empfangen
+- MQTT senden (Steuerbar)
     - Temperaturgrenze
     - Ein- und Ausschalten der Lüfter
+    - Maximale Lüftergeschwindigkeit
+    - Up- und Downsteps
+    - Schrittweite
 - PWM Regelnung zwei 3-polige PC-Lüfter
 - Temperaturgesteuerte Regelung
 - Auslesen der RPM eines Lüfters
