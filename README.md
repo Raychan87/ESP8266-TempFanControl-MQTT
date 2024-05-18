@@ -18,5 +18,12 @@ Und es kann über MQTT die Lüfter ausgeschaltet werden und die Temperaturgrenze
 - Temperaturgesteuerte Regelung
 - Auslesen der RPM eines Lüfters
 
+### Benötigte Hardware
+- NodeMCU v2 ESP8266
+- Pololu TB6612FNG Dual Motor Driver Carrier
+- SparkFun AP63203 3,3V StepDown Regler
+- 3,3V Logic Level Converter
+- DS18B20
+- 2x 3-Pol PC Lüfter
 
  
