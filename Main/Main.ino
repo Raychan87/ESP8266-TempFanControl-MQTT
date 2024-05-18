@@ -273,7 +273,7 @@ void loop() {
       if (dutyCycle <= PWM_MIN_DUTY){
         dutyCycle = PWM_MIN_DUTY + 5;
       }else{        
-        if (dutyCycle > MaxSpeed){
+        if (dutyCycle >= MaxSpeed){
           dutyCycle = MaxSpeed;
         } else {
           dutyCycle = dutyCycle + StepWidth;
