@@ -18,8 +18,8 @@
 #define PWM_MIN_DUTY 90 //Mindest PWM Signal
 #define PWM_MAX_DUTY 255 //PWM Off
 #define PWM_STEP_DUTY 10 //Schrittweite Erhöhung des PWMs
-#define PWM_CYCLUS_UP 10 //Loop Anzahl für Schrittweite Erhöhung
-#define PWM_CYCLUS_DOWN -10 //Loop Anzahl für Schrittweite Verringerung
+#define PWM_CYCLUS_UP 5 //Loop Anzahl für Schrittweite Erhöhung
+#define PWM_CYCLUS_DOWN 5 //Loop Anzahl für Schrittweite Verringerung
 #define PWM_SPEED_LIMIT 255 //Maximale PWM Geschwindigkeit
 
 //---GPIO-PINs---//
@@ -30,7 +30,7 @@
 #define TEMP_PIN 4  //D2
 
 //
-#define LOOP_TIME 750 //ms
+#define LOOP_TIME 1000 //ms
 #define S_BAUDRATE 115200
 #define MAJOR_TEMP 35.0
 
@@ -49,7 +49,7 @@
 
 //________________________________________________________
 //RPM
-int rpm;                    //U/min
+int RPM;                    //U/min
 int RPM_Mode = 0;           //0 = AUS, 1 = Messung, 2 = Finish
 int RPM_DelayCounter = 0;   //Für die Messpausen
 int RPM_Half_turn = 0;      //Anzahl der Halb-Umdrehung
@@ -64,7 +64,7 @@ int UpSpeed = PWM_CYCLUS_UP;
 int StepWidth = PWM_STEP_DUTY;
 int DownSpeed = PWM_CYCLUS_DOWN;
 int MaxSpeed = PWM_SPEED_LIMIT;
-float temperature;
+float Temperature;
 unsigned long previousMillis = 0;  
 const char* MQTT_Clint_Name = "ESP-Server";
 
@@ -111,6 +111,10 @@ void reconnect() {
       Serial.println("connected");
       client.subscribe(MQTT_SUB_MAJOR); //Eine Subscribe abonieren.
       client.subscribe(MQTT_SUB_SWITCH); //Eine Subscribe abonieren.
+      client.subscribe(MQTT_SUB_UPSPEED); //Eine Subscribe abonieren.
+      client.subscribe(MQTT_SUB_DOWNSPEED); //Eine Subscribe abonieren.
+      client.subscribe(MQTT_SUB_STEPWIDTH); //Eine Subscribe abonieren.
+      client.subscribe(MQTT_SUB_MAXSPEED); //Eine Subscribe abonieren.
     }
 	}
 }
@@ -140,7 +144,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Switch = msg_wert;
   }
 
-  //Geschwindigkeit für das Hochregeln
+    //Geschwindigkeit für das Hochregeln
   if (srtTopic == MQTT_SUB_UPSPEED){
     UpSpeed = msg_wert;
   }
@@ -157,7 +161,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   //Maximale Geschwindigkeit
   if (srtTopic == MQTT_SUB_MAXSPEED){
-    StepWidth = msg_wert;
+    MaxSpeed = msg_wert;
   }
 }
 
@@ -215,9 +219,9 @@ void loop() {
 
     //Temperatur Messung
     sensors.requestTemperatures(); 
-    temperature = sensors.getTempCByIndex(0);
-    if (temperature >= 1){ //Auslesefehler werden nicht gesendet
-      client.publish(MQTT_TX_TEMP,String(temperature).c_str(),true); //MQTT
+    Temperature = sensors.getTempCByIndex(0);
+    if (Temperature >= 1){ //Auslesefehler werden nicht gesendet
+      client.publish(MQTT_TX_TEMP,String(Temperature).c_str(),true); //MQTT
     }
     
     //RPM Signal vom FAN
@@ -242,14 +246,14 @@ void loop() {
       RPM_Half_turn = 0;
       RPM_startTime = 0;
       RPM_Mode = 0;
-      rpm = 0;
-      client.publish(MQTT_TX_RPM,String(rpm).c_str(),true); //MQTT
+      RPM = 0;
+      client.publish(MQTT_TX_RPM,String(RPM).c_str(),true); //MQTT
     }
     //Messung ist abgeschlossen, RPM wird berechnet.
     if (RPM_Mode == 2) {
       if (RPM_diffTime > 10) { //Fehlerhafte Messung ausschließen        
-        rpm = (1000.0 / (RPM_diffTime )) * 60.0; //RPM Berechnung
-        client.publish(MQTT_TX_RPM,String(rpm).c_str(),true); //MQTT
+        RPM = (1000.0 / (RPM_diffTime )) * 60.0; //RPM Berechnung
+        client.publish(MQTT_TX_RPM,String(RPM).c_str(),true); //MQTT
         RPM_startTime = 0;
         RPM_diffTime = 0;
       }          
@@ -257,7 +261,7 @@ void loop() {
     }
 
     //Temperaturregelung
-    if (temperature >= MajorTemp) 
+    if (Temperature >= MajorTemp) 
     {
       DutyCounter++;
     }else{
@@ -268,10 +272,11 @@ void loop() {
     if (DutyCounter >= UpSpeed){
       if (dutyCycle <= PWM_MIN_DUTY){
         dutyCycle = PWM_MIN_DUTY + 5;
-      }else{
-        dutyCycle = dutyCycle + StepWidth;
+      }else{        
         if (dutyCycle > MaxSpeed){
-        dutyCycle = MaxSpeed;
+          dutyCycle = MaxSpeed;
+        } else {
+          dutyCycle = dutyCycle + StepWidth;
         }
       }
       DutyCounter = 0;
