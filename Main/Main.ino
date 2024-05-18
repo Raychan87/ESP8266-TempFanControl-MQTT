@@ -18,29 +18,34 @@
 #define PWM_MIN_DUTY 90 //Mindest PWM Signal
 #define PWM_MAX_DUTY 255 //PWM Off
 #define PWM_STEP_DUTY 10 //Schrittweite Erhöhung des PWMs
-#define PWM_CYCLUS_UP 5 //Loop Anzahl für Schrittweite Erhöhung
-#define PWM_CYCLUS_DOWN -3 //Loop Anzahl für Schrittweite Verringerung
+#define PWM_CYCLUS_UP 10 //Loop Anzahl für Schrittweite Erhöhung
+#define PWM_CYCLUS_DOWN -10 //Loop Anzahl für Schrittweite Verringerung
+#define PWM_SPEED_LIMIT 255 //Maximale PWM Geschwindigkeit
 
 //---GPIO-PINs---//
 //Pin 14 defekt
-#define RPM_PIN 13
-#define FAN1_PIN 12
-#define FAN2_PIN 0
-#define TEMP_PIN 4  //DS18B20
+#define RPM_PIN 13  //D7
+#define FAN1_PIN 12 //D6
+#define FAN2_PIN 0  //D3
+#define TEMP_PIN 4  //D2
 
 //
 #define LOOP_TIME 750 //ms
 #define S_BAUDRATE 115200
-#define MAJOR_TEMP 22.0
+#define MAJOR_TEMP 35.0
 
 //MQTT Topic fürs empfangen von Daten
-#define MQTT_SUB_MAJOR "inTopic"
-#define MQTT_SUB_SWITCH "inTopicOff"
+#define MQTT_SUB_MAJOR "ESP32-Server/major"         //Temperatur Schwelle in °C
+#define MQTT_SUB_SWITCH "ESP32-Server/switch"       //1 = Off, 0 = On 
+#define MQTT_SUB_UPSPEED "ESP32-Server/upspeed"     //x = Pro Zyklus
+#define MQTT_SUB_DOWNSPEED "ESP32-Server/downspeed" //x = Pro Zyklus
+#define MQTT_SUB_STEPWIDTH "ESP32-Server/stepwidth" //Um wieviel Schritte das PWM erhöht wird
+#define MQTT_SUB_MAXSPEED "ESP32-Server/maxspeed"   //Maximale Geschwindigkeit
 
 //MQTT Topic fürs senden von Daten
-#define MQTT_TX_DUTYCYCLE "/server/pwm"
-#define MQTT_TX_TEMP "/server/temp"
-#define MQTT_TX_RPM "/server/rpm"
+#define MQTT_TX_DUTYCYCLE "ESP32-Server/pwm"
+#define MQTT_TX_TEMP "ESP32-Server/temp"
+#define MQTT_TX_RPM "ESP32-Server/rpm"
 
 //________________________________________________________
 //RPM
@@ -55,6 +60,11 @@ unsigned long RPM_diffTime = 0; //Zeit zwischen den ersten und letzten Interrupt
 //Var
 int dutyCycle, DutyCounter, Switch;
 int MajorTemp = MAJOR_TEMP;
+int UpSpeed = PWM_CYCLUS_UP;
+int StepWidth = PWM_STEP_DUTY;
+int DownSpeed = PWM_CYCLUS_DOWN;
+int MaxSpeed = PWM_SPEED_LIMIT;
+float temperature;
 unsigned long previousMillis = 0;  
 const char* MQTT_Clint_Name = "ESP-Server";
 
@@ -130,6 +140,25 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Switch = msg_wert;
   }
 
+  //Geschwindigkeit für das Hochregeln
+  if (srtTopic == MQTT_SUB_UPSPEED){
+    UpSpeed = msg_wert;
+  }
+
+  //Geschwindigkeit für das Herrunterregeln
+  if (srtTopic == MQTT_SUB_DOWNSPEED){
+    DownSpeed = msg_wert;
+  }
+
+  //Schrittweite des PWM
+  if (srtTopic == MQTT_SUB_STEPWIDTH){
+    StepWidth = msg_wert;
+  }
+
+  //Maximale Geschwindigkeit
+  if (srtTopic == MQTT_SUB_MAXSPEED){
+    StepWidth = msg_wert;
+  }
 }
 
 //________________________________________________________
@@ -186,7 +215,7 @@ void loop() {
 
     //Temperatur Messung
     sensors.requestTemperatures(); 
-    float temperature = sensors.getTempCByIndex(0);
+    temperature = sensors.getTempCByIndex(0);
     if (temperature >= 1){ //Auslesefehler werden nicht gesendet
       client.publish(MQTT_TX_TEMP,String(temperature).c_str(),true); //MQTT
     }
@@ -236,28 +265,28 @@ void loop() {
     }
 
     //PWM Lüftersteuerung
-    if (DutyCounter >= PWM_CYCLUS_UP){
+    if (DutyCounter >= UpSpeed){
       if (dutyCycle <= PWM_MIN_DUTY){
         dutyCycle = PWM_MIN_DUTY + 5;
       }else{
-        dutyCycle = dutyCycle + PWM_STEP_DUTY;
-        if (dutyCycle > PWM_MAX_DUTY){
-        dutyCycle = PWM_MAX_DUTY;
+        dutyCycle = dutyCycle + StepWidth;
+        if (dutyCycle > MaxSpeed){
+        dutyCycle = MaxSpeed;
         }
       }
       DutyCounter = 0;
     }
-    if (DutyCounter <= PWM_CYCLUS_DOWN){
+    if (DutyCounter <= (DownSpeed * -1)){
       if (dutyCycle <= PWM_MIN_DUTY){
         dutyCycle = 0;
       }else{
-        dutyCycle = dutyCycle - PWM_STEP_DUTY;
+        dutyCycle = dutyCycle - StepWidth;
       }    
       DutyCounter = 0;
     }
     
     //Abschalten der Fans
-    if (Switch == 0){
+    if (Switch == 1){
       dutyCycle = 0;
     }
 
