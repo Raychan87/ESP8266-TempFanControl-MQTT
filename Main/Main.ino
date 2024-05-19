@@ -33,6 +33,7 @@
 #define LOOP_TIME 1000 //ms
 #define S_BAUDRATE 115200
 #define MAJOR_TEMP 35.0
+#define HYSTERESE_TEMP 3
 
 //MQTT Topic fürs empfangen von Daten
 #define MQTT_SUB_MAJOR "ESP32-Server/major"         //Temperatur Schwelle in °C
@@ -41,6 +42,7 @@
 #define MQTT_SUB_DOWNSPEED "ESP32-Server/downspeed" //x = Pro Zyklus
 #define MQTT_SUB_STEPWIDTH "ESP32-Server/stepwidth" //Um wieviel Schritte das PWM erhöht wird
 #define MQTT_SUB_MAXSPEED "ESP32-Server/maxspeed"   //Maximale Geschwindigkeit
+#define MQTT_SUB_HYSTERESE "ESP32-Server/hysterese" 
 
 //MQTT Topic fürs senden von Daten
 #define MQTT_TX_DUTYCYCLE "ESP32-Server/pwm"
@@ -50,16 +52,17 @@
 //________________________________________________________
 //RPM
 int RPM;                    //U/min
-int RPM_Mode = 0;           //0 = AUS, 1 = Messung, 2 = Finish
+int RPM_Mode = 0;           //0 = AUS, 1 = Messung, 2 = Beenden
 int RPM_DelayCounter = 0;   //Für die Messpausen
 int RPM_Half_turn = 0;      //Anzahl der Halb-Umdrehung
-unsigned long RPM_startTime = 0; //Startzeit des ersten Interrupts
-unsigned long RPM_diffTime = 0; //Zeit zwischen den ersten und letzten Interrupts
+unsigned long RPM_startTime = 0;  //Startzeit des ersten Interrupts
+unsigned long RPM_diffTime = 0;   //Zeit zwischen den ersten und letzten Interrupts
 
 //________________________________________________________
 //Var
-int dutyCycle, DutyCounter, Switch;
+int dutyCycle, DutyCounter, Switch, UpDownRegler;
 int MajorTemp = MAJOR_TEMP;
+int Hysterese = HYSTERESE_TEMP;
 int UpSpeed = PWM_CYCLUS_UP;
 int StepWidth = PWM_STEP_DUTY;
 int DownSpeed = PWM_CYCLUS_DOWN;
@@ -86,11 +89,11 @@ void setup_wifi() {
   //Anmelden ins WLan
 	WiFi.begin(SSID, PSK);
 
+  //Warten bis die Verbindung aufgebaut wurde
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
 		Serial.print(".");
 	}
-
 	Serial.println("");
 	Serial.println("WiFi connected");
 	Serial.println("IP address: ");
@@ -115,6 +118,7 @@ void reconnect() {
       client.subscribe(MQTT_SUB_DOWNSPEED); //Eine Subscribe abonieren.
       client.subscribe(MQTT_SUB_STEPWIDTH); //Eine Subscribe abonieren.
       client.subscribe(MQTT_SUB_MAXSPEED); //Eine Subscribe abonieren.
+      client.subscribe(MQTT_SUB_HYSTERESE); //Eine Subscribe abonieren.
     }
 	}
 }
@@ -162,6 +166,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
   //Maximale Geschwindigkeit
   if (srtTopic == MQTT_SUB_MAXSPEED){
     MaxSpeed = msg_wert;
+  }
+
+    //Hysterese
+  if (srtTopic == MQTT_SUB_HYSTERESE){
+    Hysterese = msg_wert;
   }
 }
 
@@ -252,7 +261,7 @@ void loop() {
     //Messung ist abgeschlossen, RPM wird berechnet.
     if (RPM_Mode == 2) {
       if (RPM_diffTime > 10) { //Fehlerhafte Messung ausschließen        
-        RPM = (1000.0 / (RPM_diffTime )) * 60.0; //RPM Berechnung
+        RPM = (1000.0 / RPM_diffTime ) * 60.0; //RPM Berechnung
         client.publish(MQTT_TX_RPM,String(RPM).c_str(),true); //MQTT
         RPM_startTime = 0;
         RPM_diffTime = 0;
@@ -261,12 +270,12 @@ void loop() {
     }
 
     //Temperaturregelung
-    if (Temperature >= MajorTemp) 
-    {
-      DutyCounter++;
-    }else{
-      DutyCounter--;
+    if (Temperature >= MajorTemp) {
+      UpDownRegler = 1;
+    } else if (Temperature <= MajorTemp - Hysterese) {
+      UpDownRegler = -1;
     }
+    DutyCounter = DutyCounter + UpDownRegler;
 
     //PWM Lüftersteuerung
     if (DutyCounter >= UpSpeed){
