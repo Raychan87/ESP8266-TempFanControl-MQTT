@@ -3,7 +3,7 @@
 ### Beschreibung
 Das Programm ist für ein ESP8288. Dieser steuert zwei 3 polige PC-Lüfter über ein DS18B20 Temperatur Sensor.
 Zusätzlich werden die Temperatur und die Umdrehung eines Lüfters per MQTT in ein Smarthome System übertragen.
-Und es kann über MQTT die Lüfter ausgeschaltet werden und die Temperaturgrenze eingestellt werden.
+Desweiteren kann in die PWM Steuerung per MQTT eingegriffen werden.
 
 - WLAN Betrieb
 - MQTT empfangen
@@ -16,11 +16,12 @@ Und es kann über MQTT die Lüfter ausgeschaltet werden und die Temperaturgrenze
     - Maximale Lüftergeschwindigkeit
     - Up- und Downsteps
     - Schrittweite
+    - Hysterese Parameter
 - PWM Regelnung zwei 3-polige PC-Lüfter
 - Temperaturgesteuerte Regelung
 - Auslesen der RPM eines Lüfters
 
-### Benötigte Hardware
+### Verwendete Hardware
 - NodeMCU v2 ESP8266
 
   ![grafik](https://github.com/Raychan87/ESP8266-TempFanControl-MQTT/assets/18511462/7b1a5c8b-3612-4b7d-93e3-93347f434481)
