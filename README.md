@@ -17,7 +17,7 @@ Desweiteren kann in die PWM Steuerung per MQTT eingegriffen werden.
     - Up- und Downsteps
     - Schrittweite
     - Hysterese Parameter
-- PWM Regelnung zwei 3-polige PC-Lüfter
+- PWM Regelnung zwei 3-Pin PC-Lüfter
 - Temperaturgesteuerte Regelung
 - Auslesen der RPM eines Lüfters
 
