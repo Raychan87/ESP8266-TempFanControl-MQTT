@@ -36,18 +36,18 @@
 #define HYSTERESE_TEMP 3
 
 //MQTT Topic fürs empfangen von Daten
-#define MQTT_SUB_MAJOR "ESP32-Server/major"         //Temperatur Schwelle in °C
-#define MQTT_SUB_SWITCH "ESP32-Server/switch"       //1 = Off, 0 = On 
-#define MQTT_SUB_UPSPEED "ESP32-Server/upspeed"     //x = Pro Zyklus
-#define MQTT_SUB_DOWNSPEED "ESP32-Server/downspeed" //x = Pro Zyklus
-#define MQTT_SUB_STEPWIDTH "ESP32-Server/stepwidth" //Um wieviel Schritte das PWM erhöht wird
-#define MQTT_SUB_MAXSPEED "ESP32-Server/maxspeed"   //Maximale Geschwindigkeit
-#define MQTT_SUB_HYSTERESE "ESP32-Server/hysterese" 
+#define MQTT_SUB_MAJOR "ESP8266-Server/major"         //Temperatur Schwelle in °C
+#define MQTT_SUB_SWITCH "ESP8266-Server/switch"       //1 = Off, 0 = On 
+#define MQTT_SUB_UPSPEED "ESP8266-Server/upspeed"     //x = Pro Zyklus
+#define MQTT_SUB_DOWNSPEED "ESP8266-Server/downspeed" //x = Pro Zyklus
+#define MQTT_SUB_STEPWIDTH "ESP8266-Server/stepwidth" //Um wieviel Schritte das PWM erhöht wird
+#define MQTT_SUB_MAXSPEED "ESP8266-Server/maxspeed"   //Maximale Geschwindigkeit
+#define MQTT_SUB_HYSTERESE "ESP8266-Server/hysterese" 
 
 //MQTT Topic fürs senden von Daten
-#define MQTT_TX_DUTYCYCLE "ESP32-Server/pwm"
-#define MQTT_TX_TEMP "ESP32-Server/temp"
-#define MQTT_TX_RPM "ESP32-Server/rpm"
+#define MQTT_TX_DUTYCYCLE "ESP8266-Server/pwm"
+#define MQTT_TX_TEMP "ESP8266-Server/temp"
+#define MQTT_TX_RPM "ESP8266-Server/rpm"
 
 //________________________________________________________
 //RPM
